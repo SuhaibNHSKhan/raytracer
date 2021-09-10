@@ -21,7 +21,7 @@ int main(int argc, char** argv) {
     plane_t planes[] = {
         (plane_t) {
             .material = (material_t) { .clr = (color) { .val = 0xffbd9e31}},
-            .norm = global_y,
+            .norm = v3f_noz((v3f) {-0.1f, 1.0f, 0.0f}),
             .d = -5.0f
         }
     };
