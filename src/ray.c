@@ -27,6 +27,8 @@ film_t film_new(const camera_t* camera, f32 d, u32 x_pix, u32 y_pix) {
     film.y_ratio = 1.0f;
     film.x_ratio = film.y_ratio * x_pix / y_pix;
     
+    film.pix_sz = 2.0f * film.y_ratio / y_pix;
+    
     return film;
 }
 
@@ -37,15 +39,24 @@ v3f film_pixel_vec(const film_t* film, u32 x, u32 y) {
     f32 x_off = x_norm * film->x_ratio;
     f32 y_off = y_norm * film->y_ratio;
     
-    // NOTE(suhaibnk): can be replace by the mat multiple of orientation * v3f(x_off, y_off, 0)
-    // logically multiplying by orientation matrix converts from local coordination system to global
-    // this would mean that we want a local transformation for v3f(x_off, y_off, 0) which then we convert to the global offset
-    
-    v3f off = v3f_add(v3f_scale(film->orientation.x, x_off), v3f_scale(film->orientation.y, y_off));
+    v3f off = v3f_transform((v3f) { x_off, y_off, 0.0f}, film->orientation);
     
     return v3f_add(film->center, off);
     
 }
+
+v3f film_pixel_vec_rand(const film_t* film, u32 x, u32 y) {
+    f32 x_norm = 2.0f * x / film->x_pix - 1.0f;
+    f32 y_norm = 2.0f * y / film->y_pix - 1.0f;
+    
+    f32 x_off = x_norm * film->x_ratio + randsf(film->pix_sz / 2.0f);
+    f32 y_off = y_norm * film->y_ratio + randsf(film->pix_sz / 2.0f);
+    
+    v3f off = v3f_transform((v3f) { x_off, y_off, 0.0f}, film->orientation);
+    
+    return v3f_add(film->center, off);
+}
+
 
 ray_t ray_new(v3f pos, v3f dir) {
     return (ray_t) {
@@ -66,8 +77,8 @@ v3f ray_at(const ray_t* ray, f32 t) {
 }
 
 // NOTE(suhaibnk): Not great, assumes y component of ray @ 1 is always between -1.0 to 1.0 (true for now)
-u32 skybox_hit(const ray_t* ray) {
-    return color_lerp(color_newv(0xff3285a8), color_newv(0xffffffff), (ray_at(ray, 1.0f).y + 1.0f) / 2.0f).val;
+color4f skybox_hit(const ray_t* ray) {
+    return color4f_newv(0xff87CEFA);
 }
 
 hitinfo_t plane_rayhit(const plane_t* plane, const ray_t* ray) {
@@ -124,30 +135,70 @@ hitinfo_t sphere_rayhit(const sphere_t* sphere, const ray_t* ray) {
     return info;
 }
 
-u32 scene_cast_ray(const scene_t* scene, const ray_t* ray) {
-    u32 clr = skybox_hit(ray);
-    f32 d = FLT_MAX;
+
+
+#if 1
+color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
+    material_t mat = (material_t) {0};
+    
+    if (depth == 0) {
+        return color4f_newv(0xff000000); 
+    }
+    
+    hitinfo_t main_info = (hitinfo_t) {0};
+    main_info.d = FLT_MAX;
     
     for (u32 i = 0; i < scene->n_planes; ++i) {
         plane_t plane = scene->planes[i];
-        hitinfo_t info = plane_rayhit(&plane, ray);
+        hitinfo_t info = plane_rayhit(&plane, &ray);
         
-        if (info.hit && info.d < d) {
-            d = info.d;
-            clr = plane.material.clr.val;
+        if (info.hit && !near_zero(info.d) && info.d < main_info.d) {
+            main_info = info;
+            mat = plane.material;
         }
     }
     
     for (u32 i = 0; i < scene->n_spheres; ++i) {
         sphere_t sphere = scene->spheres[i];
-        hitinfo_t info = sphere_rayhit(&sphere, ray);
+        hitinfo_t info = sphere_rayhit(&sphere, &ray);
         
-        if (info.hit && info.d < d) {
-            d = info.d;
-            clr = sphere.material.clr.val;
+        if (info.hit && !near_zero(info.d)  && info.d < main_info.d) {
+            main_info = info;
+            mat = sphere.material;
         }
     }
     
+    if (main_info.hit) {
+        f32 p = 1 / (2.0f * PI);
+        
+        v3f pos = main_info.pos;
+        v3f nor = main_info.norm;
+        
+        v3f cen = v3f_add(pos, nor);
+        
+        v3f off = v3f_add(cen, v3f_unit_sphere());
+        
+        v3f out_dir = v3f_noz(v3f_sub(off, pos));
+        
+        ray_t new_ray = ray_new(main_info.pos, out_dir);
+        
+        f32 cos = v3f_dot(out_dir, nor);
+        
+        color4f brdf = color4f_mul(mat.diffuse_color, 1.0f / PI);
+        
+        color4f incoming_color = scene_cast_ray(scene, new_ray, depth - 1);
+        
+        f32 incoming_scale = cos / p;
+        
+        color4f incoming_color_factor = color4f_combine_mul(color4f_mul(incoming_color, incoming_scale), brdf);
+        
+        return color4f_add(mat.emit_color, incoming_color_factor);
+        
+        //return color4f_combine_mul(mat.diffuse_color, color4f_mul(, 0.7f));
+        
+    } else {
+        return color4f_newv(0xff000000);
+    }
     
-    return clr;
 }
+#endif

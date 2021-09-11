@@ -1,5 +1,17 @@
 #include "math.h"
 #include <math.h>
+#include <stdlib.h>
+
+
+f32 randsf(f32 max) {
+    f32 r = (f32) rand() / RAND_MAX;
+    
+    return (r * 2.0f - 1.0f) * max;
+}
+
+f32 clamp(f32 val, f32 min, f32 max) {
+    return val > max ? max : val < min ? min : val;
+}
 
 
 // STUDY(suhaibnk):
@@ -57,33 +69,154 @@ v3f v3f_noz(v3f v) {
     return (v.x == 0.0f && v.y == 0.0f && v.z == 0.0f) ? v : v3f_norm(v);
 }
 
-color color_newf(f32 r, f32 g, f32 b, f32 a) {
-    return (color) {
-        .r = (u8) (r * 255.0f),
-        .g = (u8) (g * 255.0f),
-        .b = (u8) (b * 255.0f),
-        .a = (u8) (a * 255.0f)
+
+// TOOD*suhaibnk): this is wrong mut some how works??
+#if 0
+v3f v3f_transform(v3f v, mat3f m) {
+    return (v3f) {
+        .x = v3f_dot(v, m.x),
+        .y = v3f_dot(v, m.y),
+        .z = v3f_dot(v, m.z)
+    };
+}
+#else
+v3f v3f_transform(v3f v, mat3f m) {
+    return (v3f) {
+        .x = v3f_dot(v, (v3f) {m.x.x, m.y.x, m.z.x}),
+        .y = v3f_dot(v, (v3f) {m.x.y, m.y.y, m.z.y}),
+        .z = v3f_dot(v, (v3f) {m.x.z, m.y.z, m.z.z})
+    };
+}
+#endif
+v3f v3f_reflect(v3f dir, v3f norm) {
+    return v3f_add(dir, v3f_scale(norm, -2.0f * v3f_dot(norm, dir)));
+}
+
+v3f v3f_unit_sphere() {
+    return v3f_noz((v3f) { randsf(1.0f), randsf(1.0f), randsf(1.0f) });
+}
+
+color4f color4f_def() {
+    return (color4f) {
+        .r = 0.0f,
+        .g = 0.0f,
+        .b = 0.0f,
+        .a = 1.0f
     };
 }
 
-color color_newv(u32 val) {
-    return (color) {
-        .val = val
+color4f color4f_new(f32 r, f32 g, f32 b, f32 a) {
+    return (color4f) {
+        .r = r,
+        .g = g,
+        .b = b,
+        .a = a
     };
 }
 
-color color_lerp(color c1, color c2, f32 t) {
-    return (color) {
-        .r = (u8) (c1.r * (1 - t) + c2.r * t),
-        .g = (u8) (c1.g * (1 - t) + c2.g * t),
-        .b = (u8) (c1.b * (1 - t) + c2.b * t),
-        .a = (u8) (c1.a * (1 - t) + c2.a * t)
+color4f color4f_newv(u32 val) {
+    return (color4f) {
+        .a = ((val & 0xff000000) >> 24) / 255.0f,
+        .r = ((val & 0x00ff0000) >> 16) / 255.0f,
+        .g = ((val & 0x0000ff00) >> 8) / 255.0f,
+        .b = (val & 0x000000ff) / 255.0f
     };
 }
+
+color4f color4f_lerp(color4f c1, color4f c2, f32 t) {
+    return (color4f) {
+        .r = (c1.r * (1 - t) + c2.r * t),
+        .g = (c1.g * (1 - t) + c2.g * t),
+        .b = (c1.b * (1 - t) + c2.b * t),
+        .a = (c1.a * (1 - t) + c2.a * t)
+    };
+}
+
+void color4f_accumulate(color4f* self, color4f other) {
+    self->r += other.r;
+    self->g += other.g;
+    self->b += other.b;
+    //self->a += other.a;
+}
+
+void color4f_add_attenuated(color4f* self, color4f other, f32 attenuation) {
+    self->r = self->r * attenuation + other.r * (1.0f - attenuation);
+    self->g = self->g * attenuation + other.g * (1.0f - attenuation);
+    self->b = self->b * attenuation + other.b * (1.0f - attenuation);
+    //self->a += other.a;
+}
+
+color4f color4f_mul(color4f color, f32 m) {
+    return (color4f) {
+        .r = color.r * m,
+        .g = color.g * m,
+        .b = color.b * m,
+        .a = color.a
+    };
+}
+
+u32 color4f_val(color4f color) {
+    return 
+        (((u32) (clamp(color.a, 0.0f, 1.0f) * 255.0)) << 24) |
+        (((u32) (clamp(color.r, 0.0f, 1.0f) * 255.0)) << 16) |
+        (((u32) (clamp(color.g, 0.0f, 1.0f) * 255.0)) << 8) |
+        (((u32) (clamp(color.b, 0.0f, 1.0f) * 255.0)));
+}
+
 
 b32 near_zero(f32 val) {
     return val <= 0.000001f && val >= -0.000001f ? 1 : 0;
 }
+
+
+color4f color4f_noz(color4f color) {
+    f32 mag = color.r * color.r + color.b * color.b + color.g * color.g;
+    
+    if (near_zero(mag)) {
+        return color;
+    } else {
+        f32 mul = 1.0f / sqrtf(mag);
+        
+        return color4f_mul(color, mul);
+    }
+}
+
+color4f color4f_gamma_correct(color4f color) {
+    return (color4f) {
+        .r = sqrtf(color.r),
+        .g = sqrtf(color.g),
+        .b = sqrtf(color.b),
+        .a = color.a
+    };
+}
+
+color4f color4f_gamma_uncorrect(color4f color) {
+    return (color4f) {
+        .r = color.r * color.r,
+        .g = color.g * color.g,
+        .b = color.b * color.b,
+        .a = color.a
+    };
+}
+
+color4f color4f_combine_mul(color4f c1, color4f c2) {
+    return (color4f) {
+        .r = c1.r * c2.r,
+        .g = c1.g * c2.g,
+        .b = c1.b * c2.b,
+        .a = c1.a * c2.a,
+    };
+}
+
+color4f color4f_add(color4f c1, color4f c2) {
+    return (color4f) {
+        .r = c1.r + c2.r,
+        .g = c1.g + c2.g,
+        .b = c1.b + c2.b,
+        .a = c1.a,
+    };
+}
+
 
 void mat3f_print(mat3f m) {
     printf("%.4f %.4f %.4f\n%.4f %.4f %.4f\n%.4f %.4f %.4f", 
@@ -91,5 +224,3 @@ void mat3f_print(mat3f m) {
            m.dat[3], m.dat[4], m.dat[5],
            m.dat[6], m.dat[7], m.dat[8]);
 }
-
-

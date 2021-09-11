@@ -15,7 +15,9 @@ typedef struct {
 } hitinfo_t;
 
 typedef struct {
-    color clr;
+    float diffuse;
+    color4f emit_color;
+    color4f diffuse_color;
 } material_t;
 
 typedef struct {
@@ -38,6 +40,7 @@ typedef struct {
 typedef struct {
     v3f center;
     mat3f orientation;
+    f32 pix_sz;
     u32 x_pix, y_pix;
     f32 x_ratio, y_ratio;
 } film_t;
@@ -45,6 +48,7 @@ typedef struct {
 typedef struct {
     camera_t camera;
     film_t film;
+    material_t skybox;
     u32 n_planes;
     plane_t* planes;
     u32 n_spheres;
