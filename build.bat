@@ -2,7 +2,10 @@
 
 pushd build
 
-del /q *
+del /q *.obj
+del /q *.exe
+del /q *.ilk
+del /q *.pdb
 
 set MainFile=../src/main.c
 

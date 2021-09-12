@@ -25,6 +25,6 @@ typedef float    f64;
 
 typedef unsigned long dword;
 
-typedef dword (*worker_thread)(void* );
+typedef dword (*thread_func)(void* );
 
 #endif //UTIL_H

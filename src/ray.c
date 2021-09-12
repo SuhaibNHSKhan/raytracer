@@ -231,8 +231,8 @@ void render_block(u32 min_x, u32 min_y, u32 mp1_x, u32 mp1_y,
             }
             
             *res++ = color4f_val(color4f_gamma_correct(color4f_mul(acc, samplesr)));
-            
         }
+        
     }
 }
 

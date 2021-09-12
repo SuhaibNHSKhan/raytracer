@@ -4,6 +4,7 @@
 
 #include "util.c"
 #include "math.c"
+#include "thread.c"
 #include "ray.c"
 
 #define PROGRESS
@@ -13,7 +14,7 @@ int main(int argc, char** argv) {
 #if 1
     u32 height = 720;
     u32 width  = 1280;
-    u32 samples = 128;
+    u32 samples = 32;
     u32 bounces = 32;
     
     raytrace_config_t config = (raytrace_config_t) {
@@ -38,7 +39,7 @@ int main(int argc, char** argv) {
     
     sphere_t spheres[] = {
         (sphere_t) {
-            .material = (material_t) { .diffuse = 0.3f, .diffuse_color = color4f_newv(0xffffffff), .emit_color = color4f_newv(0xff000000)},
+            .material = (material_t) { .diffuse = 0.3f, .diffuse_color = color4f_newv(0xff0373fc), .emit_color = color4f_newv(0xff000000)},
             .center = (v3f) {0.0f, -2.0f, 30.0f},
             .r = 3.0f
         },
@@ -72,46 +73,45 @@ int main(int argc, char** argv) {
     //u32 max_d = max(img.width, img.height);
     
     
-#define CORES 1
+#define CORES 8
     
-    u32 y_d = (img.height + CORES - 1) / CORES;
+    u32 block_w = 128; // width;
+    u32 block_h = 128; // (height + CORES - 1) / CORES;
     
     progress_t progress = {
         .current_bounces = 0,
         .total_bounces = (s64) img.width * img.height * config.samples * config.bounces
     };
     
-    thread_t threads[CORES];
+    threadpool_t threadpool = threadpool_new(CORES);
     
-    rt_workunit_t work_units[CORES];
-    
-    for (u32 y = 0; y < CORES; ++y) {
-        
-        rt_workunit_t* work_unit = &work_units[y];
-        
-        work_unit->min_x = 0;
-        work_unit->min_y = y * y_d;
-        work_unit->mp1_x = img.width;
-        work_unit->mp1_y = min((y + 1) * y_d, img.height);
-        work_unit->config = &config;
-        work_unit->scene = &scene;
-        work_unit->img = &img;
-        work_unit->progress = &progress;
-        
-        
-        threads[y] = thread_run(render_block_worker, work_unit);
-        
-        //printf("\rRaycasting %.2f%% complete...", 100.0f * progress.current_bounces / progress.total_bounces);
-        
+    for (u32 y = 0; y < height; y += block_h) {
+        for (u32 x = 0; x < width; x += block_w) {
+            rt_workunit_t* work_unit = malloc(sizeof(rt_workunit_t));
+            
+            work_unit->min_x = x;
+            work_unit->min_y = y;
+            work_unit->mp1_x = min(x + block_w, img.width);
+            work_unit->mp1_y = min(y + block_h, img.height);
+            work_unit->config = &config;
+            work_unit->scene = &scene;
+            work_unit->img = &img;
+            work_unit->progress = &progress;
+            
+            threadpool_submit(&threadpool, render_block_worker, (void*) work_unit);
+        }
     }
     
+    threadpool_end(&threadpool);
+    
+    /*
     dword res;
     
     // TODO(suhaibnk): Wait timeout is windows specific
     while ((res = thread_wait_for_all(CORES, threads, 1, 1000)) == WAIT_TIMEOUT) {
         printf("\rRaycasting %.2f%% complete...", 100.0f * progress.current_bounces / progress.total_bounces);
     }
-    
+    */
     clock_t end = clock();
     
     long elapsed = (end - start);
