@@ -56,4 +56,25 @@ typedef struct {
     
 } scene_t;
 
+typedef struct {
+    u32 samples, bounces;
+} raytrace_config_t;
+
+
+typedef struct {
+    volatile s64 total_bounces;
+    volatile s64 current_bounces;
+    
+} progress_t;
+
+
+typedef struct {
+    u32 min_x, min_y, mp1_x, mp1_y;
+    raytrace_config_t* config;
+    scene_t* scene;
+    img_t* img;
+    progress_t* progress;
+    
+} rt_workunit_t;
+
 #endif //RAY_H

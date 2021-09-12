@@ -13,9 +13,13 @@ int main(int argc, char** argv) {
 #if 1
     u32 height = 720;
     u32 width  = 1280;
-    u32 samples = 4096;
-    u32 depth = 32;
-    f32 samplesr = 1.0f / samples;
+    u32 samples = 128;
+    u32 bounces = 32;
+    
+    raytrace_config_t config = (raytrace_config_t) {
+        .samples = samples,
+        .bounces = bounces
+    };
     
     img_t img = image_new(width, height);
     
@@ -34,7 +38,7 @@ int main(int argc, char** argv) {
     
     sphere_t spheres[] = {
         (sphere_t) {
-            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff57c971), .emit_color = color4f_newv(0xff000000)},
+            .material = (material_t) { .diffuse = 0.3f, .diffuse_color = color4f_newv(0xffffffff), .emit_color = color4f_newv(0xff000000)},
             .center = (v3f) {0.0f, -2.0f, 30.0f},
             .r = 3.0f
         },
@@ -62,57 +66,66 @@ int main(int argc, char** argv) {
     scene.n_spheres = 4;
     scene.spheres = spheres;
     
-#ifdef PROGRESS
-    u32 total_rays = width * height * samples;
-    u32 cast_rays = 0;
-    u32 max_print = width * height * samples / 200;
-    u32 print = max_print;
-#endif
-    u32* res = img.pixels;
-    
     clock_t start = clock();
     
-    for (u32 y = 0; y < height; ++y) {
-        for (u32 x = 0; x < width; ++x) {
-            
-            color4f acc = color4f_def();
-            
-            for (u32 s = 0; s < samples; ++s) {
-                v3f to = film_pixel_vec_rand(&f, x, y);
-                ray_t ray = ray_to(c.pos, to);
-                color4f clr = scene_cast_ray(&scene, ray, depth);
-                
-                color4f_accumulate(&acc, clr);
-                
-#ifdef PROGRESS
-                cast_rays++;
-                
-                //printf("Casting Ray for {x: %u, y: %u}\n", x, y);
-                print--;
-                if (!print) printf("\rCompleted %.2f%%", cast_rays * 100.0f / total_rays);
-                
-                if (!print) {
-                    print = max_print;
-                }
-#endif
-            }
-            
-            
-            
-            *res++ = color4f_val(color4f_gamma_correct(color4f_mul(acc, samplesr)));
-        }
+    //u32 min_d = min(img.width, img.height);
+    //u32 max_d = max(img.width, img.height);
+    
+    
+#define CORES 1
+    
+    u32 y_d = (img.height + CORES - 1) / CORES;
+    
+    progress_t progress = {
+        .current_bounces = 0,
+        .total_bounces = (s64) img.width * img.height * config.samples * config.bounces
+    };
+    
+    thread_t threads[CORES];
+    
+    rt_workunit_t work_units[CORES];
+    
+    for (u32 y = 0; y < CORES; ++y) {
+        
+        rt_workunit_t* work_unit = &work_units[y];
+        
+        work_unit->min_x = 0;
+        work_unit->min_y = y * y_d;
+        work_unit->mp1_x = img.width;
+        work_unit->mp1_y = min((y + 1) * y_d, img.height);
+        work_unit->config = &config;
+        work_unit->scene = &scene;
+        work_unit->img = &img;
+        work_unit->progress = &progress;
+        
+        
+        threads[y] = thread_run(render_block_worker, work_unit);
+        
+        //printf("\rRaycasting %.2f%% complete...", 100.0f * progress.current_bounces / progress.total_bounces);
+        
+    }
+    
+    dword res;
+    
+    // TODO(suhaibnk): Wait timeout is windows specific
+    while ((res = thread_wait_for_all(CORES, threads, 1, 1000)) == WAIT_TIMEOUT) {
+        printf("\rRaycasting %.2f%% complete...", 100.0f * progress.current_bounces / progress.total_bounces);
     }
     
     clock_t end = clock();
     
     long elapsed = (end - start);
     
+    printf("\nRaytracing complete. \nTook: %dms",
+           elapsed);
+    
+#if 0
     printf("\nRaytracing complete. \nTook: %dms | %fms/bounce | %fms/ray | %fms/pixel",
            elapsed, 
            (f32) elapsed / (width * height * samples * depth),
            (f32) elapsed / (width * height * samples),
            (f32) elapsed / (width * height));
-    
+#endif
     image_write(img, fopen("data/test.bmp", "wb"));
     
 #endif

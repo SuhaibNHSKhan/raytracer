@@ -1,6 +1,7 @@
 #include "ray.h"
 
 #include <assert.h>
+#include "win32_ray.c"
 
 camera_t camera_new(v3f pos, v3f lookat) {
     
@@ -135,9 +136,6 @@ hitinfo_t sphere_rayhit(const sphere_t* sphere, const ray_t* ray) {
     return info;
 }
 
-
-
-#if 1
 color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
     material_t mat = (material_t) {0};
     
@@ -176,9 +174,15 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         
         v3f cen = v3f_add(pos, nor);
         
+#if 1
         v3f off = v3f_add(cen, v3f_unit_sphere());
-        
         v3f out_dir = v3f_noz(v3f_sub(off, pos));
+#else
+        v3f off = v3f_scale(v3f_add(cen, v3f_unit_sphere()), mat.diffuse * -v3f_dot(ray.dir, nor));
+        v3f norm_adj = v3f_noz(v3f_sub(off, pos));
+        
+        v3f out_dir = v3f_reflect(ray.dir, norm_adj);
+#endif
         
         ray_t new_ray = ray_new(main_info.pos, out_dir);
         
@@ -201,4 +205,43 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
     }
     
 }
-#endif
+
+
+void render_block(u32 min_x, u32 min_y, u32 mp1_x, u32 mp1_y, 
+                  const raytrace_config_t* config, const scene_t* scene, const img_t* img, progress_t* progress) {
+    
+    f32 samplesr = 1.0f / config->samples;
+    
+    for (u32 y = min_y; y < mp1_y; ++y) {
+        
+        u32* res = img->pixels + y * img->width + min_x;
+        
+        for (u32 x = min_x; x < mp1_x; ++x) {
+            
+            color4f acc = color4f_def();
+            
+            for (u32 s = 0; s < config->samples; ++s) {
+                v3f to = film_pixel_vec_rand(&scene->film, x, y);
+                ray_t ray = ray_to(scene->camera.pos, to);
+                color4f clr = scene_cast_ray(scene, ray, config->bounces);
+                
+                color4f_accumulate(&acc, clr);
+                
+                locked_add(&progress->current_bounces, config->bounces);
+            }
+            
+            *res++ = color4f_val(color4f_gamma_correct(color4f_mul(acc, samplesr)));
+            
+        }
+    }
+}
+
+
+dword render_block_worker(void* data) {
+    rt_workunit_t* work_unit = (rt_workunit_t*) data;
+    
+    render_block(work_unit->min_x, work_unit->min_y, work_unit->mp1_x, work_unit->mp1_y, 
+                 work_unit->config, work_unit->scene, work_unit->img, work_unit->progress);
+    
+    return 0;
+}

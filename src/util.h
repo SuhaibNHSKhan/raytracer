@@ -23,6 +23,8 @@ typedef uint64_t b64;
 typedef float    f32;
 typedef float    f64;
 
+typedef unsigned long dword;
 
+typedef dword (*worker_thread)(void* );
 
 #endif //UTIL_H
