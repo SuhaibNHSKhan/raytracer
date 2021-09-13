@@ -176,7 +176,10 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         
 #if 1
         v3f off = v3f_add(cen, v3f_unit_sphere());
-        v3f out_dir = v3f_noz(v3f_sub(off, pos));
+        v3f out_diff = v3f_noz(v3f_sub(off, pos));
+        v3f out_refl = v3f_noz(v3f_reflect(ray.dir, nor));
+        
+        v3f out_dir = v3f_noz(v3f_lerp(out_refl, out_diff, mat.diffuse));
 #else
         v3f off = v3f_scale(v3f_add(cen, v3f_unit_sphere()), mat.diffuse * -v3f_dot(ray.dir, nor));
         v3f norm_adj = v3f_noz(v3f_sub(off, pos));
@@ -188,7 +191,7 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         
         f32 cos = v3f_dot(out_dir, nor);
         
-        color4f brdf = color4f_mul(mat.diffuse_color, 1.0f / PI);
+        color4f brdf = color4f_mul(mat.diffuse_color, 1.0f / PI); 
         
         color4f incoming_color = scene_cast_ray(scene, new_ray, depth - 1);
         
@@ -201,7 +204,7 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         //return color4f_combine_mul(mat.diffuse_color, color4f_mul(, 0.7f));
         
     } else {
-        return color4f_newv(0xff000000);
+        return color4f_mul(skybox_hit(&ray), 0.2f);//color4f_newv(0xff000000);
     }
     
 }

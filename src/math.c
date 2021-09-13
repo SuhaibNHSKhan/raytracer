@@ -96,6 +96,10 @@ v3f v3f_unit_sphere() {
     return v3f_noz((v3f) { randsf(1.0f), randsf(1.0f), randsf(1.0f) });
 }
 
+v3f v3f_lerp(v3f v1, v3f v2, f32 t) {
+    return v3f_add(v3f_scale(v1, 1.0f - t), v3f_scale(v2, t));
+}
+
 color4f color4f_def() {
     return (color4f) {
         .r = 0.0f,

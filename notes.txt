@@ -1,0 +1,81 @@
+TODO
+
+1. Make notes about context of vector operations like add, sub, mul, transform, dot, cross (math.c)
+2. Pull out the threadpool code. Seems pretty useful in a generic sense. 
+3. Make vector ops more ingrained in way of thinking (reasoning about add, dot, etc in different ways)
+
+NOTE:
+
+RESOURCES:
+https://www.pbr-book.org/
+
+
+LEARN:
+
+1. Modelling color, what do the r,g,b values we set really mean.
+     a. For examples for a emissive material what does (0.3, 0.2, 0.5) values would mean. 
+        Are we modelling the energy in some way. In that case can emission materials have rgb components > 1.0
+        Why the 1.0 limit, are we modelling the limit inherent to the universe or is it a limitation of the "camera"
+
+     b. What do these same color values mean for diffuse materials (the albedo?)
+        If a material is of value (0.7, 0.2, 0.2) (reddish?) it mean red light is reflected at a higher rate than g and b
+        So are these basically attenuation values 
+        i.e. for example say we have an incoming ray of light with value (0.3, 0.9, 0.8)
+        Would this be attenuated to lower values where the red light is attenuated to a lesser extent to b and g
+        What does this formula look like and why (is it a simple hadamard mul)
+
+     c. For metals are their colors different physically than diffuse in some ways (since they have high reflectivity 
+        but some of them clearly have distinct colors so something is getting absorbed)
+
+2. How do we model diffuse and specular components of a material?
+   Current Understading:
+   Diffuse: Incoming ray of light can bounce in any direction. 
+			So pick a random point in hemisphere (on the tangent plane) and reflect in that direction
+            Also we need to consider that the ray could have bounce in any direction
+            So we adjust by a factor of 2*pi (otherwise we break energy conservation laws???)
+            NOTE: 2*pi deriving from -> area of hemisphere 2*pi*r^2 (unit sphere r = 1) -> 2*pi
+
+   Mirror:  Outgoing rays area are perfect reflection of the incoming ray about the normal 
+            Also how is color modelled here (can perfect mirrors tint light rays)
+            Are they 2 separate things?. Mirrors about reflection angle, color about intensity absorbtion
+
+   Glossy:  A mix between diffuse and mirror. The reflected rays should be biased towards the perfect reflection 
+            using some factor, to say how much to bias. 
+            How to do this?? Micro facets??
+            And does this modelling alone gie us specular highlights
+
+
+3. Specular highlights are caused when the angle between light -> surface and surface -> eye is 
+   perfectly bisected by the normal.
+   How is this modelled in the path tracing.
+   Is this handled by the stuff that handles glossy reflections (doesn't seem to)
+
+4. What is gamma correct. What is sRGB
+   Is gamma correct only for the fact that in the scene we are representing colors and lights 
+   in terms on intensity (like in the real world)
+
+   But when we finally get to render these color, we need to take some root, (like how cameras does), to increase 
+   the overall dynamic range our pixel bytes can represent.
+   So we exploit the fact that human are good at detecting changes in relative intensity vs change in absolute intensity
+
+   e.g. Change from 0.1 -> 0.2 is more perceptible than 0.8 -> 0.9
+   
+   So by taking the sqrt, we give more bit essentialy to lower end of the changes
+
+5. What is BRDF?? 
+   The equation we use (work most well for diffuse only it seems)
+   Where mat is the material of the current object reflecting the ray
+
+    p = 1 / 2pi // 1 / 2pi because of the thing I mentioned regarding area and probs
+
+    cos = angle between out_dir and normal
+
+    brdf = mat.diffuse_color * (1 / pi) // related to p??
+
+    t = incoming_color * (cos / p) // why this at all. Is the cos there because of lambertian, why divide by p
+
+    outgoing_color = mat.emit_color + t * brdf // emit color makes sense. 
+
+6. What exactly is PBR (Physcially Based Rendering). How are they implemented in a path tracer vs a game engine
+
+7. Word Meanings: Intensity, Luminence, Radiosity. 

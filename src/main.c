@@ -14,7 +14,7 @@ int main(int argc, char** argv) {
 #if 1
     u32 height = 720;
     u32 width  = 1280;
-    u32 samples = 32;
+    u32 samples = 4096;
     u32 bounces = 32;
     
     raytrace_config_t config = (raytrace_config_t) {
@@ -31,22 +31,27 @@ int main(int argc, char** argv) {
     
     plane_t planes[] = {
         (plane_t) {
-            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xffcfaf65), .emit_color = color4f_newv(0xff000000)},
+            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff222222), .emit_color = color4f_newv(0xff000000)},
             .norm = global_y, // v3f_noz((v3f) {0.1f, 1.0f, 0.0f}),
             .d = -5.0f
+        },
+        (plane_t) {
+            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff000000), .emit_color = color4f_newv(0xffffffff)},
+            .norm = v3f_noz((v3f){-1.0f, -1.0f, -1.0f}), // v3f_noz((v3f) {0.1f, 1.0f, 0.0f}),
+            .d = 100.0f
         }
     };
     
     sphere_t spheres[] = {
         (sphere_t) {
-            .material = (material_t) { .diffuse = 0.3f, .diffuse_color = color4f_newv(0xff0373fc), .emit_color = color4f_newv(0xff000000)},
+            .material = (material_t) { .diffuse = 0.2f, .diffuse_color = color4f_newv(0xffffffff), .emit_color = color4f_newv(0xff000000)},
             .center = (v3f) {0.0f, -2.0f, 30.0f},
             .r = 3.0f
         },
         (sphere_t) {
-            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff000000), .emit_color = color4f_newv(0xff6577cf)},
-            .center = (v3f) {6.0f, -5.0f, 30.0f},
-            .r = 3.0f
+            .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff000000), .emit_color = color4f_newv(0xffffffff)},
+            .center = (v3f) {6.0f, 0.0f, 25.0f},
+            .r = 1.0f
         },
         (sphere_t) {
             .material = (material_t) { .diffuse = 1.0f, .diffuse_color = color4f_newv(0xff000000), .emit_color = color4f_newv(0xffb565cf)},
@@ -64,7 +69,7 @@ int main(int argc, char** argv) {
     scene.film = f;
     scene.n_planes = 1;
     scene.planes = planes;
-    scene.n_spheres = 4;
+    scene.n_spheres = 2;
     scene.spheres = spheres;
     
     clock_t start = clock();
