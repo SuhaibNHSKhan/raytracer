@@ -97,6 +97,10 @@ void threadpool_end(threadpool_t* threadpool) {
     thread_wait_for_all(threadpool->tcount, threadpool->threads, 1, INFINITE);
 }
 
+dword threadpool_complete(threadpool_t* threadpool, dword ms) {
+    return thread_wait_for_all(threadpool->tcount, threadpool->threads, 1, ms);
+}
+
 dword thread_worker(void* data) {
     workerqueue_t* queue = (workerqueue_t*) data;
     

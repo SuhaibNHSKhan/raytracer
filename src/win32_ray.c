@@ -68,4 +68,9 @@ dword thread_wait_for_all(u32 tcount, const thread_t* threads, b32 for_all, dwor
     return WaitForMultipleObjects(tcount, (const HANDLE*) threads, (BOOL) for_all, ms);
 }
 
+dword thread_wait(const thread_t* thread, dword ms) {
+    return WaitForSingleObject(thread->handle, ms);
+}
+
+
 #endif

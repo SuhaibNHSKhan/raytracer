@@ -69,11 +69,18 @@ typedef struct {
 
 
 typedef struct {
+    threadpool_t* threadpool;
+    progress_t* progress;
+    
+} progress_workunit_t;
+
+typedef struct {
     u32 min_x, min_y, mp1_x, mp1_y;
     raytrace_config_t* config;
     scene_t* scene;
     img_t* img;
     progress_t* progress;
+    lcg_rand_t random_series;
     
 } rt_workunit_t;
 

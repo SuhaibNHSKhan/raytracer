@@ -79,3 +79,9 @@ LEARN:
 6. What exactly is PBR (Physcially Based Rendering). How are they implemented in a path tracer vs a game engine
 
 7. Word Meanings: Intensity, Luminence, Radiosity. 
+
+8. How are emissive stuff handle, what happens when 2 emissive materials interact. 
+   (ray from emissive falls on another emmisive)
+   Do emissive materials need to model diffuse at all
+
+9. How does lcg random work (or how any random number generator works)

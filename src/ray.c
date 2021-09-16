@@ -46,12 +46,12 @@ v3f film_pixel_vec(const film_t* film, u32 x, u32 y) {
     
 }
 
-v3f film_pixel_vec_rand(const film_t* film, u32 x, u32 y) {
+v3f film_pixel_vec_rand(const film_t* film, lcg_rand_t* random_series, u32 x, u32 y) {
     f32 x_norm = 2.0f * x / film->x_pix - 1.0f;
     f32 y_norm = 2.0f * y / film->y_pix - 1.0f;
     
-    f32 x_off = x_norm * film->x_ratio + randsf(film->pix_sz / 2.0f);
-    f32 y_off = y_norm * film->y_ratio + randsf(film->pix_sz / 2.0f);
+    f32 x_off = x_norm * film->x_ratio + randsf(random_series, film->pix_sz / 2.0f);
+    f32 y_off = y_norm * film->y_ratio + randsf(random_series, film->pix_sz / 2.0f);
     
     v3f off = v3f_transform((v3f) { x_off, y_off, 0.0f}, film->orientation);
     
@@ -136,7 +136,7 @@ hitinfo_t sphere_rayhit(const sphere_t* sphere, const ray_t* ray) {
     return info;
 }
 
-color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
+color4f scene_cast_ray(const scene_t* scene, lcg_rand_t* random_series, const ray_t ray, int depth) {
     material_t mat = (material_t) {0};
     
     if (depth == 0) {
@@ -175,7 +175,7 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         v3f cen = v3f_add(pos, nor);
         
 #if 1
-        v3f off = v3f_add(cen, v3f_unit_sphere());
+        v3f off = v3f_add(cen, v3f_unit_sphere(random_series));
         v3f out_diff = v3f_noz(v3f_sub(off, pos));
         v3f out_refl = v3f_noz(v3f_reflect(ray.dir, nor));
         
@@ -193,7 +193,7 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
         
         color4f brdf = color4f_mul(mat.diffuse_color, 1.0f / PI); 
         
-        color4f incoming_color = scene_cast_ray(scene, new_ray, depth - 1);
+        color4f incoming_color = scene_cast_ray(scene, random_series, new_ray, depth - 1);
         
         f32 incoming_scale = cos / p;
         
@@ -211,7 +211,7 @@ color4f scene_cast_ray(const scene_t* scene, const ray_t ray, int depth) {
 
 
 void render_block(u32 min_x, u32 min_y, u32 mp1_x, u32 mp1_y, 
-                  const raytrace_config_t* config, const scene_t* scene, const img_t* img, progress_t* progress) {
+                  lcg_rand_t* random_series, const raytrace_config_t* config, const scene_t* scene, const img_t* img, progress_t* progress) {
     
     f32 samplesr = 1.0f / config->samples;
     
@@ -224,9 +224,9 @@ void render_block(u32 min_x, u32 min_y, u32 mp1_x, u32 mp1_y,
             color4f acc = color4f_def();
             
             for (u32 s = 0; s < config->samples; ++s) {
-                v3f to = film_pixel_vec_rand(&scene->film, x, y);
+                v3f to = film_pixel_vec_rand(&scene->film, random_series, x, y);
                 ray_t ray = ray_to(scene->camera.pos, to);
-                color4f clr = scene_cast_ray(scene, ray, config->bounces);
+                color4f clr = scene_cast_ray(scene, random_series, ray, config->bounces);
                 
                 color4f_accumulate(&acc, clr);
                 
@@ -244,7 +244,19 @@ dword render_block_worker(void* data) {
     rt_workunit_t* work_unit = (rt_workunit_t*) data;
     
     render_block(work_unit->min_x, work_unit->min_y, work_unit->mp1_x, work_unit->mp1_y, 
-                 work_unit->config, work_unit->scene, work_unit->img, work_unit->progress);
+                 &work_unit->random_series, work_unit->config, work_unit->scene, work_unit->img, work_unit->progress);
+    
+    return 0;
+}
+
+dword progress_reporter(void* data) {
+    progress_workunit_t* progress_wu = (progress_workunit_t*) data;
+    
+    while (threadpool_complete(progress_wu->threadpool, 500) == WAIT_TIMEOUT) {
+        printf("\rRaycasting progress: %.2f%%", 100.0f * progress_wu->progress->current_bounces / progress_wu->progress->total_bounces);
+    }
+    
+    printf("\rRaycasting progress: %.2f%%", 100.0f * progress_wu->progress->current_bounces / progress_wu->progress->total_bounces);
     
     return 0;
 }

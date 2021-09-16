@@ -3,8 +3,57 @@
 #include <stdlib.h>
 
 
-f32 randsf(f32 max) {
-    f32 r = (f32) rand() / RAND_MAX;
+
+u64 lcg_rand64(lcg_rand_t* state) {
+    u64 x = state->state;
+	x ^= x << 13;
+	x ^= x >> 7;
+	x ^= x << 17;
+    
+    state->c = 0;
+    
+	return state->state = x;
+}
+
+u32 lcg_rand32(lcg_rand_t* state) {
+    if (state->c + 32 > 64) {
+        lcg_rand64(state);
+    }
+    
+    u32 x = (state->state >> state->c) & 0xffffffff;
+    
+    state->c += 32;
+    
+	return x;
+}
+
+u16 lcg_rand16(lcg_rand_t* state) {
+    if (state->c + 16 > 64) {
+        lcg_rand64(state);
+    }
+    
+    u16 x = (state->state >> state->c) & 0xffff;
+    
+    state->c += 16;
+    
+	return x;
+}
+
+u8 lcg_rand8(lcg_rand_t* state) {
+    if (state->c + 8 > 64) {
+        lcg_rand64(state);
+    }
+    
+    u8 x = (state->state >> state->c) & 0xff;
+    
+    state->c += 8;
+    
+	return x;
+}
+
+
+f32 randsf(lcg_rand_t* random_series, f32 max) {
+    f32 r = (f32) lcg_rand16(random_series) / U16_MAX;
     
     return (r * 2.0f - 1.0f) * max;
 }
@@ -92,8 +141,8 @@ v3f v3f_reflect(v3f dir, v3f norm) {
     return v3f_add(dir, v3f_scale(norm, -2.0f * v3f_dot(norm, dir)));
 }
 
-v3f v3f_unit_sphere() {
-    return v3f_noz((v3f) { randsf(1.0f), randsf(1.0f), randsf(1.0f) });
+v3f v3f_unit_sphere(lcg_rand_t* random_series) {
+    return v3f_noz((v3f) { randsf(random_series, 1.0f), randsf(random_series, 1.0f), randsf(random_series, 1.0f) });
 }
 
 v3f v3f_lerp(v3f v1, v3f v2, f32 t) {
@@ -220,6 +269,7 @@ color4f color4f_add(color4f c1, color4f c2) {
         .a = c1.a,
     };
 }
+
 
 
 void mat3f_print(mat3f m) {

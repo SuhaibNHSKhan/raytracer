@@ -9,6 +9,8 @@
 
 #define PI 3.14159265f
 
+#define U16_MAX 0xffff
+
 typedef struct {
     float x, y, z;
 } v3f;
@@ -23,6 +25,11 @@ typedef struct {
         };
     };
 } v4f;
+
+typedef struct {
+    u64 state;
+    u32 c;
+} lcg_rand_t;
 
 typedef v4f color4f;
 

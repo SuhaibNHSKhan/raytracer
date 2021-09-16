@@ -83,12 +83,21 @@ int main(int argc, char** argv) {
     u32 block_w = 128; // width;
     u32 block_h = 128; // (height + CORES - 1) / CORES;
     
+    threadpool_t threadpool = threadpool_new(CORES);
+    
     progress_t progress = {
         .current_bounces = 0,
         .total_bounces = (s64) img.width * img.height * config.samples * config.bounces
     };
     
-    threadpool_t threadpool = threadpool_new(CORES);
+#ifdef PROGRESS
+    progress_workunit_t progress_workunit;
+    
+    progress_workunit.progress = &progress;
+    progress_workunit.threadpool = &threadpool;
+    
+    thread_t progress_thread = thread_run(progress_reporter, (void*) &progress_workunit);
+#endif
     
     for (u32 y = 0; y < height; y += block_h) {
         for (u32 x = 0; x < width; x += block_w) {
@@ -102,13 +111,17 @@ int main(int argc, char** argv) {
             work_unit->scene = &scene;
             work_unit->img = &img;
             work_unit->progress = &progress;
+            work_unit->random_series = (lcg_rand_t) { .state = rand(), .c = 0 };
             
             threadpool_submit(&threadpool, render_block_worker, (void*) work_unit);
         }
     }
     
-    threadpool_end(&threadpool);
     
+    threadpool_end(&threadpool);
+#ifdef PROGRESS
+    thread_wait(&progress_thread, INFINITE);
+#endif
     /*
     dword res;
     
